@@ -27,6 +27,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
 import javax.swing.RowFilter;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
@@ -60,7 +61,7 @@ public class GestorBiblioteca extends JFrame {
 	private JButton btnPrestamo;
 	private JLabel lblFechaDeInicio;
 	private JLabel lblFechaDeFinalizacion;
-	private final int DURACION_ESTANDAR_PRESTAMO = 15;
+	private static final int DURACION_ESTANDAR_PRESTAMO = 15;
 	private JButton btnDevuelto;
 	private JScrollPane scrollPanePrestamos;
 
@@ -80,8 +81,12 @@ public class GestorBiblioteca extends JFrame {
 		contentPane.setBackground(new Color(234, 234, 234));
 		contentPane.addMouseListener(new MouseAdapter() {
 			@Override
-			public void mousePressed(MouseEvent e) {
+			public void mouseClicked(MouseEvent e) {
 				tableLibros.getSelectionModel().clearSelection();
+				tablePrestamos.getSelectionModel().clearSelection();
+				updateEliminar();
+				updateEditar();
+				updateMarcarDevuelto();
 			}
 		});
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
@@ -94,11 +99,13 @@ public class GestorBiblioteca extends JFrame {
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				tableLibros.getSelectionModel().clearSelection();
-				limpiarCampos();
+				tablePrestamos.getSelectionModel().clearSelection();
+				updateEliminar();
+				updateEditar();
+				updateMarcarDevuelto();
 			}
 		});
 		scrollPaneLibros.setBounds(10, 85, 535, 445);
-		scrollPaneLibros.setBackground(Color.WHITE);
 		contentPane.add(scrollPaneLibros);
 
 		// TABLA LIBROS
@@ -106,23 +113,30 @@ public class GestorBiblioteca extends JFrame {
 		// Rellenar los campos de texto al seleccionar una fila
 		tableLibros.addMouseListener(new MouseAdapter() {
 			@Override
-			public void mousePressed(MouseEvent e) {
+			public void mouseClicked(MouseEvent e) {
 				int selectedRowInView = tableLibros.getSelectedRow();
-
-				// Convert to model index
 				int fila = tableLibros.convertRowIndexToModel(selectedRowInView);
-
 				txtTitulo.setText((String) modeloLibros.getValueAt(fila, 0));
 				txtAutor.setText((String) modeloLibros.getValueAt(fila, 1));
 				txtISBN.setText((String) modeloLibros.getValueAt(fila, 2));
 				updateEliminar();
 				updatePrestamo();
 				updateEditar();
+				tablePrestamos.clearSelection();
+				updateMarcarDevuelto();
 			}
 		});
 
-		modeloLibros = new DefaultTableModel(new Object[][] {}, new String[] { "Titulo", "Autor", "ISBN" });
+		modeloLibros = new DefaultTableModel(new Object[][] {}, new String[] { "Titulo", "Autor", "ISBN" }) {
+			@Override
+			public boolean isCellEditable(int row, int column) {
+				return false; // Make all cells non-editable
+			}
+		};
+
 		tableLibros.setModel(modeloLibros);
+		tableLibros.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+
 		scrollPaneLibros.setViewportView(tableLibros);
 
 		TableColumn colISBN = tableLibros.getColumnModel().getColumn(2);
@@ -155,6 +169,8 @@ public class GestorBiblioteca extends JFrame {
 				int fila = tableLibros.convertRowIndexToModel(selectedRowInView);
 				modeloLibros.removeRow(fila);
 				limpiarCampos();
+				txtBuscar.setText("");
+				btnBuscar.doClick();
 				if (checkAutoguardado.isEnabled()) // guarda despues de cada cambio si autoguardado esta habilitado
 					guardarLibros();
 			}
@@ -174,6 +190,8 @@ public class GestorBiblioteca extends JFrame {
 				modeloLibros.setValueAt(txtAutor.getText(), fila, 1);
 				modeloLibros.setValueAt(txtISBN.getText(), fila, 2);
 				limpiarCampos();
+				txtBuscar.setText("");
+				btnBuscar.doClick();
 				if (checkAutoguardado.isEnabled()) // guarda despues de cada cambio si autoguardado esta habilitado
 					guardarLibros();
 				tableLibros.clearSelection();
@@ -186,8 +204,6 @@ public class GestorBiblioteca extends JFrame {
 		// actualizan los botones añadir y modificar, para deshabilitarlos si los campos
 		// estan vacios
 		txtTitulo = new JTextField();
-		txtTitulo.setForeground(Color.BLACK);
-		txtTitulo.setBackground(Color.WHITE);
 		txtTitulo.setToolTipText("Titulo");
 		txtTitulo.addKeyListener(new KeyAdapter() {
 			@Override
@@ -201,8 +217,6 @@ public class GestorBiblioteca extends JFrame {
 		txtTitulo.setColumns(10);
 
 		txtAutor = new JTextField();
-		txtAutor.setForeground(Color.BLACK);
-		txtAutor.setBackground(Color.WHITE);
 		txtAutor.setToolTipText("Autor");
 		txtAutor.addKeyListener(new KeyAdapter() {
 			@Override
@@ -216,8 +230,6 @@ public class GestorBiblioteca extends JFrame {
 		txtAutor.setColumns(10);
 
 		txtISBN = new JTextField();
-		txtISBN.setForeground(Color.BLACK);
-		txtISBN.setBackground(Color.WHITE);
 		txtISBN.setToolTipText("ISBN");
 		txtISBN.addKeyListener(new KeyAdapter() {
 			@Override
@@ -233,7 +245,6 @@ public class GestorBiblioteca extends JFrame {
 		// BOTON GUARDAR
 		btnGuardar = new JButton("Guardar");
 		btnGuardar.setToolTipText("Guardar las tablas en archivos de texto");
-		btnGuardar.setBackground(Color.WHITE);
 		btnGuardar.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				guardarLibros();
@@ -277,7 +288,6 @@ public class GestorBiblioteca extends JFrame {
 
 		// CAMPO BUSCAR
 		txtBuscar = new JTextField();
-		txtBuscar.setBackground(Color.WHITE);
 		txtBuscar.addKeyListener(new KeyAdapter() { // al pulsar enter se simula una pulsacion al botón de buscar
 			@Override
 			public void keyPressed(KeyEvent e) {
@@ -327,10 +337,21 @@ public class GestorBiblioteca extends JFrame {
 
 		// SCROLLPANEL PRESTAMOS
 		scrollPanePrestamos = new JScrollPane();
+		scrollPanePrestamos.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				tableLibros.getSelectionModel().clearSelection();
+				tablePrestamos.getSelectionModel().clearSelection();
+				updateEliminar();
+				updateEditar();
+				updateMarcarDevuelto();
+			}
+		});
 		scrollPanePrestamos.setBounds(674, 85, 938, 445);
 		scrollPanePrestamos.setBackground(Color.WHITE);
 		contentPane.add(scrollPanePrestamos);
 
+		// TABLA PRESTAMOS
 		tablePrestamos = new JTable();
 		tablePrestamos.setForeground(Color.BLACK);
 		tablePrestamos.setBackground(Color.WHITE);
@@ -338,10 +359,18 @@ public class GestorBiblioteca extends JFrame {
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				updateMarcarDevuelto();
+				tableLibros.clearSelection();
+				updateEditar();
+				updateEliminar();
 			}
 		});
 		modeloPrestamos = new DefaultTableModel(new Object[][] {},
-				new String[] { "Titulo", "Autor", "ISBN", "Usuario", "Fecha inicio", "Fecha fin", "Estado" });
+				new String[] { "Titulo", "Autor", "ISBN", "Usuario", "Fecha inicio", "Fecha fin", "Estado" }) {
+			@Override
+			public boolean isCellEditable(int row, int column) {
+				return false; // Make all cells non-editable
+			}
+		};
 		tablePrestamos.setModel(modeloPrestamos);
 		scrollPanePrestamos.setViewportView(tablePrestamos);
 		tablePrestamos.getColumnModel().getColumn(2).setPreferredWidth(20);
@@ -349,11 +378,13 @@ public class GestorBiblioteca extends JFrame {
 		tablePrestamos.getColumnModel().getColumn(4).setPreferredWidth(0);
 		tablePrestamos.getColumnModel().getColumn(5).setPreferredWidth(0);
 		tablePrestamos.getColumnModel().getColumn(6).setPreferredWidth(0);
+		tablePrestamos.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
+		// CAMPO USUARIO
 		txtUsuario = new JTextField();
 		txtUsuario.addKeyListener(new KeyAdapter() {
 			@Override
-			public void keyPressed(KeyEvent e) {
+			public void keyReleased(KeyEvent e) {
 				updatePrestamo();
 			}
 		});
@@ -365,42 +396,44 @@ public class GestorBiblioteca extends JFrame {
 		lblPrestamo.setBounds(555, 264, 109, 14);
 		contentPane.add(lblPrestamo);
 
+		// DATE CHOOSER INICIO
 		JDateChooser dateChooserInicio = new JDateChooser();
 		dateChooserInicio.setToolTipText("Inicio del plazo de prestamo");
 		dateChooserInicio.setBounds(555, 345, 109, 20);
 		contentPane.add(dateChooserInicio);
-		dateChooserInicio.setDate(new Date());
+		dateChooserInicio.setDate(new Date()); // pone la fecha actual por defecto
 
+		// DATE CHOOSER FIN
 		JDateChooser dateChooserFin = new JDateChooser();
 		dateChooserFin.setToolTipText("Fin del plazo de prestamo");
 		dateChooserFin.setBounds(555, 401, 109, 20);
 		contentPane.add(dateChooserFin);
 
+		// BOTON PRESTAMO
 		btnPrestamo = new JButton("Prestamo");
 		btnPrestamo.setToolTipText(
 				"Registrar un préstamo del libro seleccionado al usuario introducido a continuacion, durante el plazo seleccionado");
 		btnPrestamo.setEnabled(false);
 		btnPrestamo.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-
+				// obtiene strings de las fechas
 				Date fechaInicioDate = dateChooserInicio.getDate();
 				Date fechaFinDate = dateChooserFin.getDate();
-
 				SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
 				String fechaInicio = dateFormat.format(fechaInicioDate);
 				String fechaFin = dateFormat.format(fechaFinDate);
-				String estado;
 
-				if (isOverdue(fechaFinDate)) {
+				String estado;
+				if (isOverdue(fechaFinDate)) { // calcula el estado
 					estado = "RETRASADO";
 				} else {
 					estado = "Por devolver";
 				}
-				int selectedRowInView = tableLibros.getSelectedRow();
 
-				// Convert to model index
+				int selectedRowInView = tableLibros.getSelectedRow();
 				int row = tableLibros.convertRowIndexToModel(selectedRowInView);
 
+				// añade prestamo a la tabla
 				modeloPrestamos.addRow(new String[] { (String) modeloLibros.getValueAt(row, 0),
 						(String) modeloLibros.getValueAt(row, 1), (String) modeloLibros.getValueAt(row, 2),
 						txtUsuario.getText(), fechaInicio, fechaFin, estado });
@@ -424,6 +457,7 @@ public class GestorBiblioteca extends JFrame {
 		lblFechaDeFinalizacion.setBounds(555, 376, 132, 14);
 		contentPane.add(lblFechaDeFinalizacion);
 
+		// BOTON MARCAR COMO DEVUELTO
 		btnDevuelto = new JButton("Marcar como devuelto");
 		btnDevuelto.setToolTipText("Marcar el prestamo seleccionado como devuelto");
 		btnDevuelto.setEnabled(false);
@@ -431,13 +465,19 @@ public class GestorBiblioteca extends JFrame {
 			public void actionPerformed(ActionEvent e) {
 				int row = tablePrestamos.getSelectedRow();
 				modeloPrestamos.setValueAt("Devuelto", row, 6);
+				if (checkAutoguardado.isEnabled())
+					guardarPrestamos();
 				tablePrestamos.clearSelection();
 			}
 		});
 		btnDevuelto.setBounds(1448, 540, 164, 23);
 		contentPane.add(btnDevuelto);
 
-		cargar();
+		cargar(); // carga los datos
+
+		// establece la fecha del segundo datechooser a despues del periodo de prestamo
+		// estandar tras un pequeño delay.
+		// hacer esto inmediatamente no funcionaba, mostraba la fecha actual
 		SwingUtilities.invokeLater(() -> {
 			Calendar calendar = Calendar.getInstance();
 			calendar.add(Calendar.DAY_OF_MONTH, DURACION_ESTANDAR_PRESTAMO);
@@ -446,6 +486,7 @@ public class GestorBiblioteca extends JFrame {
 		});
 	}
 
+	// GUARDAR PRESTAMOS
 	private void guardarPrestamos() {
 		try (BufferedWriter writer = new BufferedWriter(new FileWriter("prestamos.txt", false))) {
 			for (int row = 0; row < modeloPrestamos.getRowCount(); row++) {
@@ -502,6 +543,7 @@ public class GestorBiblioteca extends JFrame {
 		updateEstados();
 	}
 
+	// tras cargar, recalcula si algun prestamo se ha pasado de plazo
 	private void updateEstados() {
 		for (int row = 0; row < modeloPrestamos.getRowCount(); row++) {
 			if (!modeloPrestamos.getValueAt(row, 6).equals("Devuelto")) {
@@ -560,7 +602,7 @@ public class GestorBiblioteca extends JFrame {
 		}
 	}
 
-	protected void updateMarcarDevuelto() {
+	protected void updateMarcarDevuelto() { // se habilita cuando hay una fila seleccinada
 		if (tablePrestamos.getSelectedRow() == -1) {
 			btnDevuelto.setEnabled(false);
 		} else {
